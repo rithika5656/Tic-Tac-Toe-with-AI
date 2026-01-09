@@ -9,42 +9,80 @@ const themes = {
     primary: '#667eea',
     secondary: '#764ba2',
     accent: '#9f7aea',
-    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    pattern: 'radial'
   },
   ocean: {
     name: 'Ocean Blue',
     primary: '#0077b6',
     secondary: '#00b4d8',
     accent: '#48cae4',
-    gradient: 'linear-gradient(135deg, #023e8a 0%, #0077b6 50%, #00b4d8 100%)'
+    gradient: 'linear-gradient(135deg, #023e8a 0%, #0077b6 50%, #00b4d8 100%)',
+    pattern: 'waves'
   },
   sunset: {
     name: 'Sunset Glow',
     primary: '#f72585',
     secondary: '#7209b7',
     accent: '#ff6b6b',
-    gradient: 'linear-gradient(135deg, #f72585 0%, #7209b7 100%)'
+    gradient: 'linear-gradient(135deg, #f72585 0%, #7209b7 100%)',
+    pattern: 'radial'
   },
   forest: {
     name: 'Forest Green',
     primary: '#2d6a4f',
     secondary: '#40916c',
     accent: '#52b788',
-    gradient: 'linear-gradient(135deg, #1b4332 0%, #2d6a4f 50%, #40916c 100%)'
+    gradient: 'linear-gradient(135deg, #1b4332 0%, #2d6a4f 50%, #40916c 100%)',
+    pattern: 'leaves'
   },
   dark: {
     name: 'Dark Mode',
     primary: '#6366f1',
     secondary: '#8b5cf6',
     accent: '#a78bfa',
-    gradient: 'linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%)'
+    gradient: 'linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%)',
+    pattern: 'stars'
   },
   neon: {
     name: 'Neon Nights',
     primary: '#00ff88',
     secondary: '#00d4ff',
     accent: '#ff00ff',
-    gradient: 'linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%)'
+    gradient: 'linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%)',
+    pattern: 'grid'
+  },
+  cosmic: {
+    name: 'Cosmic Space',
+    primary: '#8b5cf6',
+    secondary: '#ec4899',
+    accent: '#f59e0b',
+    gradient: 'linear-gradient(135deg, #1a0033 0%, #2d1b69 50%, #5b21b6 100%)',
+    pattern: 'stars'
+  },
+  aurora: {
+    name: 'Aurora Borealis',
+    primary: '#10b981',
+    secondary: '#3b82f6',
+    accent: '#8b5cf6',
+    gradient: 'linear-gradient(135deg, #064e3b 0%, #065f46 25%, #1e3a8a 50%, #5b21b6 100%)',
+    pattern: 'aurora'
+  },
+  fire: {
+    name: 'Fire Blaze',
+    primary: '#f59e0b',
+    secondary: '#ef4444',
+    accent: '#dc2626',
+    gradient: 'linear-gradient(135deg, #7c2d12 0%, #dc2626 50%, #f59e0b 100%)',
+    pattern: 'flames'
+  },
+  gradient: {
+    name: 'Rainbow Gradient',
+    primary: '#ec4899',
+    secondary: '#8b5cf6',
+    accent: '#3b82f6',
+    gradient: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 25%, #3b82f6 50%, #10b981 75%, #f59e0b 100%)',
+    pattern: 'rainbow'
   }
 };
 
@@ -62,6 +100,11 @@ export default function App() {
   const [mode, setMode] = useState('ai'); // 'ai' or '2p'
   const [currentPlayer, setCurrentPlayer] = useState(HUMAN); // For 2P mode
   const [hintMove, setHintMove] = useState(null);
+  const [moveHistory, setMoveHistory] = useState([]);
+  const [gameTimer, setGameTimer] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
+  const [winStreak, setWinStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
 
   // Apply theme CSS variables
   useEffect(() => {
@@ -70,21 +113,35 @@ export default function App() {
     document.documentElement.style.setProperty('--secondary-color', currentTheme.secondary);
     document.documentElement.style.setProperty('--accent-color', currentTheme.accent);
     document.documentElement.style.setProperty('--gradient', currentTheme.gradient);
-    document.documentElement.style.setProperty('--is-dark', theme === 'dark' || theme === 'neon' ? '1' : '0');
+    document.documentElement.style.setProperty('--is-dark', theme === 'dark' || theme === 'neon' || theme === 'cosmic' ? '1' : '0');
+    document.documentElement.style.setProperty('--pattern-type', currentTheme.pattern);
   }, [theme]);
+
+  // Game timer
+  useEffect(() => {
+    let interval = null;
+    if (timerActive && !gameOver) {
+      interval = setInterval(() => {
+        setGameTimer(prev => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, gameOver]);
 
   // Sound effects
   const playSound = useCallback((type) => {
     if (!soundEnabled) return;
-    
+
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
-    
+
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
-    
-    switch(type) {
+
+    switch (type) {
       case 'click':
         oscillator.frequency.value = 600;
         oscillator.type = 'sine';
@@ -165,6 +222,9 @@ export default function App() {
     setWinner(null);
     setCurrentPlayer(HUMAN);
     setHintMove(null);
+    setMoveHistory([]);
+    setGameTimer(0);
+    setTimerActive(true);
   };
 
   // AI move with delay
@@ -186,6 +246,7 @@ export default function App() {
       newBoard[bestMove.row][bestMove.col] = AI;
       setBoard(newBoard);
       setClickedSquare(`${bestMove.row}-${bestMove.col}`);
+      setMoveHistory(prev => [...prev, { player: AI, row: bestMove.row, col: bestMove.col }]);
       setTimeout(() => setClickedSquare(null), 300);
 
       // Check if game is over
@@ -193,13 +254,17 @@ export default function App() {
         const gameWinner = getWinner(newBoard);
         setWinner(gameWinner);
         setGameOver(true);
+        setTimerActive(false);
 
         // Update stats and play sound
         if (gameWinner === HUMAN) {
           setStats(prev => ({ ...prev, wins: prev.wins + 1 }));
+          setWinStreak(prev => prev + 1);
+          setBestStreak(prev => Math.max(prev, winStreak + 1));
           playSound('win');
         } else if (gameWinner === AI) {
           setStats(prev => ({ ...prev, losses: prev.losses + 1 }));
+          setWinStreak(0);
           playSound('lose');
         } else {
           setStats(prev => ({ ...prev, draws: prev.draws + 1 }));
@@ -225,11 +290,13 @@ export default function App() {
     const newBoard = board.map(r => [...r]);
     newBoard[row][col] = currentPlayer;
     setBoard(newBoard);
+    setMoveHistory(prev => [...prev, { player: currentPlayer, row, col }]);
     // Check if game is over
     if (isGameOver(newBoard)) {
       const gameWinner = getWinner(newBoard);
       setWinner(gameWinner);
       setGameOver(true);
+      setTimerActive(false);
       if (gameWinner === HUMAN) {
         setStats(prev => ({ ...prev, wins: prev.wins + 1 }));
         playSound('win');
@@ -253,7 +320,76 @@ export default function App() {
     if (!isHumanTurn || gameOver || board[row][col] !== EMPTY) {
       return;
     }
-    // ...existing code...
+
+    // Create particle effect at click position
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    createParticles(x, y, themes[theme].primary);
+
+    playSound('click');
+    setClickedSquare(`${row}-${col}`);
+    setTimeout(() => setClickedSquare(null), 300);
+
+    const newBoard = board.map(r => [...r]);
+    newBoard[row][col] = HUMAN;
+    setBoard(newBoard);
+    setMoveHistory(prev => [...prev, { player: HUMAN, row, col }]);
+
+    // Check if game is over
+    if (isGameOver(newBoard)) {
+      const gameWinner = getWinner(newBoard);
+      setWinner(gameWinner);
+      setGameOver(true);
+      setTimerActive(false);
+
+      // Update stats and play sound
+      if (gameWinner === HUMAN) {
+        setStats(prev => ({ ...prev, wins: prev.wins + 1 }));
+        setWinStreak(prev => prev + 1);
+        setBestStreak(prev => Math.max(prev, winStreak + 1));
+        playSound('win');
+      } else if (gameWinner === AI) {
+        setStats(prev => ({ ...prev, losses: prev.losses + 1 }));
+        setWinStreak(0);
+        playSound('lose');
+      } else {
+        setStats(prev => ({ ...prev, draws: prev.draws + 1 }));
+        playSound('draw');
+      }
+    } else {
+      setIsHumanTurn(false);
+    }
+  };
+
+  // Undo last move
+  const undoMove = () => {
+    if (moveHistory.length === 0 || gameOver) return;
+
+    const numMovesToUndo = mode === 'ai' ? 2 : 1; // In AI mode, undo both player and AI moves
+    const movesToRemove = Math.min(numMovesToUndo, moveHistory.length);
+
+    const newHistory = moveHistory.slice(0, -movesToRemove);
+    setMoveHistory(newHistory);
+
+    // Reconstruct board from history
+    const newBoard = createEmptyBoard();
+    newHistory.forEach(move => {
+      newBoard[move.row][move.col] = move.player;
+    });
+
+    setBoard(newBoard);
+    setIsHumanTurn(true);
+    setHintMove(null);
+    playSound('click');
+  };
+
+  // Format timer display
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const getStatusMessage = () => {
     if (!gameOver) {
@@ -282,7 +418,7 @@ export default function App() {
 
   const handleButtonClick = (callback, event) => {
     playSound('click');
-    
+
     // Create ripple effect
     const button = event.currentTarget;
     const ripple = document.createElement('span');
@@ -290,20 +426,20 @@ export default function App() {
     const size = Math.max(rect.width, rect.height);
     const x = event.clientX - rect.left - size / 2;
     const y = event.clientY - rect.top - size / 2;
-    
+
     ripple.style.width = ripple.style.height = `${size}px`;
     ripple.style.left = `${x}px`;
     ripple.style.top = `${y}px`;
     ripple.classList.add('ripple');
-    
+
     button.appendChild(ripple);
     setTimeout(() => ripple.remove(), 600);
-    
+
     callback();
   };
 
   return (
-    <div className={`app-container ${theme === 'dark' || theme === 'neon' ? 'dark-theme' : ''}`}>
+    <div className={`app-container ${theme === 'dark' || theme === 'neon' || theme === 'cosmic' ? 'dark-theme' : ''}`}>
       {/* Particle effects */}
       {particles.map(particle => (
         <div
@@ -318,7 +454,7 @@ export default function App() {
           }}
         />
       ))}
-      
+
       <div className="game-container">
         {/* Theme Selector */}
         <div className="theme-selector">
@@ -356,7 +492,7 @@ export default function App() {
         <p className="subtitle">{mode === 'ai' ? 'Play Against AI' : `2 Player Mode (${currentPlayer}'s turn)`}</p>
 
         {/* Sound Toggle */}
-        <button 
+        <button
           className="sound-toggle"
           onClick={() => setSoundEnabled(!soundEnabled)}
           title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
@@ -391,7 +527,7 @@ export default function App() {
           <button className="btn btn-primary" onClick={(e) => handleButtonClick(initializeBoard, e)}>
             <span className="btn-text">New Game</span>
           </button>
-          <button className="btn btn-secondary" onClick={(e) => handleButtonClick(() => { setStats({ wins: 0, losses: 0, draws: 0 }); initializeBoard(); }, e)}>
+          <button className="btn btn-secondary" onClick={(e) => handleButtonClick(() => { setStats({ wins: 0, losses: 0, draws: 0 }); setWinStreak(0); setBestStreak(0); initializeBoard(); }, e)}>
             <span className="btn-text">Reset Stats</span>
           </button>
           {mode === 'ai' && (
@@ -405,9 +541,34 @@ export default function App() {
               <span className="btn-text">Hint 💡</span>
             </button>
           )}
+          <button
+            className="btn btn-secondary"
+            onClick={() => undoMove()}
+            disabled={moveHistory.length === 0 || gameOver}
+          >
+            <span className="btn-text">Undo ↶</span>
+          </button>
         </div>
 
+        {/* Move History */}
+        {moveHistory.length > 0 && (
+          <div className="move-history">
+            <h3>Move History</h3>
+            <div className="history-list">
+              {moveHistory.map((move, index) => (
+                <span key={index} className="history-item">
+                  {move.player} → ({move.row},{move.col})
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="stats">
+          <div className="stat-row">
+            <span className="stat-label">⏱️ Time:</span>
+            <span className="stat-value">{formatTime(gameTimer)}</span>
+          </div>
           <div className="stat-row">
             <span className="stat-label">Your Wins:</span>
             <span className="stat-value">{stats.wins}</span>
@@ -420,6 +581,18 @@ export default function App() {
             <span className="stat-label">Draws:</span>
             <span className="stat-value">{stats.draws}</span>
           </div>
+          {winStreak > 0 && (
+            <div className="stat-row streak-row">
+              <span className="stat-label">🔥 Current Streak:</span>
+              <span className="stat-value">{winStreak}</span>
+            </div>
+          )}
+          {bestStreak > 0 && (
+            <div className="stat-row">
+              <span className="stat-label">🏆 Best Streak:</span>
+              <span className="stat-value">{bestStreak}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
