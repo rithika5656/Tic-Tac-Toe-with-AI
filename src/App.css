@@ -313,46 +313,86 @@ h1 {
 }
 
 .btn {
-  padding: 12px 30px;
+  padding: 14px 32px;
   font-size: 1em;
   font-weight: 600;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-text {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ripple effect */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(0);
+  animation: rippleEffect 0.6s ease-out;
+  pointer-events: none;
+}
+
+@keyframes rippleEffect {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient);
   color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
 }
 
 .btn-primary:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.98);
 }
 
 .btn-secondary {
   background: #f0f0f0;
   color: #333;
-  border: 2px solid #667eea;
+  border: 2px solid var(--primary-color);
+}
+
+.dark-theme .btn-secondary {
+  background: rgba(60, 60, 90, 0.5);
+  color: #e0e0e0;
+  border-color: var(--primary-color);
 }
 
 .btn-secondary:hover {
-  background: #667eea;
+  background: var(--primary-color);
   color: white;
+  transform: translateY(-3px) scale(1.02);
+}
+
+.btn-secondary:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .stats {
   margin-top: 30px;
   padding-top: 20px;
   border-top: 2px solid #eee;
+}
+
+.dark-theme .stats {
+  border-top-color: rgba(255, 255, 255, 0.1);
 }
 
 .stat-row {
@@ -367,9 +407,41 @@ h1 {
   font-weight: 500;
 }
 
+.dark-theme .stat-label {
+  color: #aaa;
+}
+
 .stat-value {
-  color: #667eea;
+  color: var(--primary-color);
   font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+/* Particle effects */
+.particle {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1000;
+  animation: particleExplode 0.6s ease-out forwards;
+}
+
+@keyframes particleExplode {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: 
+      translate(
+        calc(cos(var(--angle)) * 50px * var(--speed)),
+        calc(sin(var(--angle)) * 50px * var(--speed))
+      ) 
+      scale(0);
+  }
 }
 
 .difficulty-selector {
@@ -389,9 +461,56 @@ h1 {
   cursor: pointer;
 }
 
+/* Glow effect for neon theme */
+.app-container:has(.game-container) {
+  --glow-color: var(--primary-color);
+}
+
+/* Floating animation for game container */
+.game-container:hover {
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35);
+}
+
+/* Additional animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.game-container {
+  animation: slideUp 0.6s ease-out, float 6s ease-in-out infinite 1s;
+}
+
+/* Win celebration effect */
+.status.winner::before {
+  content: '🎊';
+  position: absolute;
+  left: -30px;
+  animation: confetti 0.5s ease-out;
+}
+
+.status.winner::after {
+  content: '🎊';
+  position: absolute;
+  right: -30px;
+  animation: confetti 0.5s ease-out;
+}
+
+@keyframes confetti {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateY(-20px) rotate(180deg); opacity: 0; }
+}
+
+/* Loading dots animation for AI thinking */
+.status:not(.winner):not(.loser):not(.draw) {
+  position: relative;
+}
+
 @media (max-width: 480px) {
   .game-container {
     padding: 20px;
+    animation: slideUp 0.6s ease-out;
   }
 
   h1 {
@@ -405,8 +524,8 @@ h1 {
   }
 
   .board {
-    gap: 5px;
-    padding: 5px;
+    gap: 6px;
+    padding: 8px;
   }
 
   .button-container {
@@ -415,5 +534,15 @@ h1 {
 
   .btn {
     width: 100%;
+  }
+
+  .theme-selector {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .theme-buttons {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
