@@ -1,3 +1,38 @@
+/* Mode selector styles */
+.mode-selector {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 10px;
+  font-size: 1em;
+}
+.mode-selector label {
+  cursor: pointer;
+  color: #333;
+  font-weight: 500;
+}
+.dark-theme .mode-selector label {
+  color: #e0e0e0;
+}
+
+/* Hint highlighting */
+.square.hint {
+  box-shadow: 0 0 0 4px var(--accent-color), 0 4px 12px rgba(0,0,0,0.15);
+  position: relative;
+  z-index: 2;
+  animation: hintPulse 1.5s infinite;
+}
+.hint-icon {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 1.2em;
+  pointer-events: none;
+}
+@keyframes hintPulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--accent-color), 0 4px 12px rgba(0,0,0,0.15); }
+  50% { box-shadow: 0 0 0 8px var(--accent-color), 0 8px 24px rgba(0,0,0,0.18); }
+}
 /* CSS Variables for theming */
 :root {
   --primary-color: #667eea;

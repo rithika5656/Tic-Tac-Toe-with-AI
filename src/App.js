@@ -59,6 +59,9 @@ export default function App() {
   const [clickedSquare, setClickedSquare] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [particles, setParticles] = useState([]);
+  const [mode, setMode] = useState('ai'); // 'ai' or '2p'
+  const [currentPlayer, setCurrentPlayer] = useState(HUMAN); // For 2P mode
+  const [hintMove, setHintMove] = useState(null);
 
   // Apply theme CSS variables
   useEffect(() => {
@@ -160,17 +163,19 @@ export default function App() {
     setIsHumanTurn(true);
     setGameOver(false);
     setWinner(null);
+    setCurrentPlayer(HUMAN);
+    setHintMove(null);
   };
 
   // AI move with delay
   useEffect(() => {
-    if (!isHumanTurn && !gameOver) {
+    if (mode === 'ai' && !isHumanTurn && !gameOver) {
       const timer = setTimeout(() => {
         makeAIMove();
       }, 800);
       return () => clearTimeout(timer);
     }
-  }, [isHumanTurn, gameOver]);
+  }, [isHumanTurn, gameOver, mode]);
 
   const makeAIMove = () => {
     const boardCopy = board.map(row => [...row]);
@@ -206,35 +211,25 @@ export default function App() {
     }
   };
 
-  const handleSquareClick = (row, col, event) => {
-    if (!isHumanTurn || gameOver || board[row][col] !== EMPTY) {
-      return;
-    }
-
+  // 2 Player move
+  const handle2PClick = (row, col, event) => {
+    if (gameOver || board[row][col] !== EMPTY) return;
     // Create particle effect at click position
     const rect = event.currentTarget.getBoundingClientRect();
     const x = rect.left + rect.width / 2;
     const y = rect.top + rect.height / 2;
     createParticles(x, y, themes[theme].primary);
-    
-    // Play click sound
     playSound('click');
-    
-    // Set clicked animation
     setClickedSquare(`${row}-${col}`);
     setTimeout(() => setClickedSquare(null), 300);
-
     const newBoard = board.map(r => [...r]);
-    newBoard[row][col] = HUMAN;
+    newBoard[row][col] = currentPlayer;
     setBoard(newBoard);
-
     // Check if game is over
     if (isGameOver(newBoard)) {
       const gameWinner = getWinner(newBoard);
       setWinner(gameWinner);
       setGameOver(true);
-
-      // Update stats and play sound
       if (gameWinner === HUMAN) {
         setStats(prev => ({ ...prev, wins: prev.wins + 1 }));
         playSound('win');
@@ -246,9 +241,19 @@ export default function App() {
         playSound('draw');
       }
     } else {
-      setIsHumanTurn(false);
+      setCurrentPlayer(currentPlayer === HUMAN ? AI : HUMAN);
     }
   };
+
+  const handleSquareClick = (row, col, event) => {
+    if (mode === '2p') {
+      handle2PClick(row, col, event);
+      return;
+    }
+    if (!isHumanTurn || gameOver || board[row][col] !== EMPTY) {
+      return;
+    }
+    // ...existing code...
 
   const getStatusMessage = () => {
     if (!gameOver) {
@@ -332,7 +337,23 @@ export default function App() {
         </div>
 
         <h1>🎮 Tic-Tac-Toe</h1>
-        <p className="subtitle">Play Against AI</p>
+        <div className="mode-selector" style={{ marginBottom: 10 }}>
+          <label>
+            <input
+              type="radio"
+              checked={mode === 'ai'}
+              onChange={() => { setMode('ai'); initializeBoard(); }}
+            /> AI Mode
+          </label>
+          <label style={{ marginLeft: 12 }}>
+            <input
+              type="radio"
+              checked={mode === '2p'}
+              onChange={() => { setMode('2p'); initializeBoard(); }}
+            /> 2 Player
+          </label>
+        </div>
+        <p className="subtitle">{mode === 'ai' ? 'Play Against AI' : `2 Player Mode (${currentPlayer}'s turn)`}</p>
 
         {/* Sound Toggle */}
         <button 
@@ -349,16 +370,20 @@ export default function App() {
 
         <div className="board">
           {board.map((row, i) =>
-            row.map((cell, j) => (
-              <button
-                key={`${i}-${j}`}
-                className={`square ${cell === HUMAN ? 'x' : cell === AI ? 'o' : ''} ${clickedSquare === `${i}-${j}` ? 'clicked' : ''}`}
-                onClick={(e) => handleSquareClick(i, j, e)}
-                disabled={gameOver || !isHumanTurn || cell !== EMPTY}
-              >
-                <span className="cell-content">{cell}</span>
-              </button>
-            ))
+            row.map((cell, j) => {
+              const isHint = hintMove && hintMove.row === i && hintMove.col === j;
+              return (
+                <button
+                  key={`${i}-${j}`}
+                  className={`square ${cell === HUMAN ? 'x' : cell === AI ? 'o' : ''} ${clickedSquare === `${i}-${j}` ? 'clicked' : ''} ${isHint ? 'hint' : ''}`}
+                  onClick={(e) => handleSquareClick(i, j, e)}
+                  disabled={gameOver || (mode === 'ai' ? !isHumanTurn : false) || cell !== EMPTY}
+                >
+                  <span className="cell-content">{cell}</span>
+                  {isHint && <span className="hint-icon">💡</span>}
+                </button>
+              );
+            })
           )}
         </div>
 
@@ -369,6 +394,17 @@ export default function App() {
           <button className="btn btn-secondary" onClick={(e) => handleButtonClick(() => { setStats({ wins: 0, losses: 0, draws: 0 }); initializeBoard(); }, e)}>
             <span className="btn-text">Reset Stats</span>
           </button>
+          {mode === 'ai' && (
+            <button className="btn btn-secondary" onClick={() => {
+              const boardCopy = board.map(row => [...row]);
+              const bestMove = findBestMove(boardCopy);
+              setHintMove(bestMove);
+              setTimeout(() => setHintMove(null), 1500);
+              playSound('click');
+            }}>
+              <span className="btn-text">Hint 💡</span>
+            </button>
+          )}
         </div>
 
         <div className="stats">
