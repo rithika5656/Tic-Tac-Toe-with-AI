@@ -92,7 +92,6 @@ export default function App() {
   const [gameOver, setGameOver] = useState(false);
   const [winner, setWinner] = useState(null);
   const [stats, setStats] = useState({ wins: 0, losses: 0, draws: 0 });
-  const [difficulty, setDifficulty] = useState('hard');
   const [theme, setTheme] = useState('purple');
   const [clickedSquare, setClickedSquare] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -202,10 +201,6 @@ export default function App() {
   };
 
   // Initialize board
-  useEffect(() => {
-    initializeBoard();
-  }, []);
-
   // Create a proper 3x3 board
   const createEmptyBoard = () => {
     return [
@@ -215,7 +210,7 @@ export default function App() {
     ];
   };
 
-  const initializeBoard = () => {
+  const initializeBoard = useCallback(() => {
     setBoard(createEmptyBoard());
     setIsHumanTurn(true);
     setGameOver(false);
@@ -225,19 +220,10 @@ export default function App() {
     setMoveHistory([]);
     setGameTimer(0);
     setTimerActive(true);
-  };
+  }, []);
 
   // AI move with delay
-  useEffect(() => {
-    if (mode === 'ai' && !isHumanTurn && !gameOver) {
-      const timer = setTimeout(() => {
-        makeAIMove();
-      }, 800);
-      return () => clearTimeout(timer);
-    }
-  }, [isHumanTurn, gameOver, mode]);
-
-  const makeAIMove = () => {
+  const makeAIMove = useCallback(() => {
     const boardCopy = board.map(row => [...row]);
     const bestMove = findBestMove(boardCopy);
 
@@ -274,7 +260,20 @@ export default function App() {
         setIsHumanTurn(true);
       }
     }
-  };
+  }, [board, playSound, winStreak]);
+
+  useEffect(() => {
+    if (mode === 'ai' && !isHumanTurn && !gameOver) {
+      const timer = setTimeout(() => {
+        makeAIMove();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isHumanTurn, gameOver, mode, makeAIMove]);
+
+  useEffect(() => {
+    initializeBoard();
+  }, [initializeBoard]);
 
   // 2 Player move
   const handle2PClick = (row, col, event) => {
